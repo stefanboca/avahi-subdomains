@@ -6,4 +6,11 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.102"
 clap = { version = "4.6.0", features = ["derive"] }
-zbus = "5.14.0"
+zbus = { version = "5.14.0", default-features = false, features = [
+  "blocking",
+  "blocking-api",
+  # these are required for zbus to compile without errors
+  "async-io",
+  "async-lock",
+  "async-process",
+] }
