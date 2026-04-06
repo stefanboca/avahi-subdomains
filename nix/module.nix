@@ -14,7 +14,7 @@
   args =
     (map (subdomain: "--subdomain='${subdomain}'") cfg.subdomains)
     ++ (optional (cfg.fqdn != null) "--fqdn=${cfg.fqdn}")
-    ++ (optional (cfg.ttl != null) "--fqdn=${toString cfg.ttl}");
+    ++ (optional (cfg.ttl != null) "--ttl=${toString cfg.ttl}");
 
   cfg = config.services.avahi-subdomains;
 in {
