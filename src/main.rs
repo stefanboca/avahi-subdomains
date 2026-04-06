@@ -1,58 +1,67 @@
-use std::{collections::HashSet, net::Ipv4Addr};
-
 use anyhow::Context;
-use simple_dns::Packet;
-use socket2::{Domain, Protocol, Socket, Type};
+use clap::Parser;
 
 mod avahi;
 
+#[derive(Parser, Debug)]
+#[command(version)]
+struct Args {
+    #[arg(long, default_value_t = 120)]
+    ttl: u32,
+    #[arg(long)]
+    fqdn: Option<String>,
+    #[arg(short, long)]
+    subdomain: Vec<String>,
+}
+
 fn main() -> anyhow::Result<()> {
-    let connection = zbus::blocking::Connection::system()?;
-    let server = avahi::ServerProxyBlocking::new(&connection)?;
-    let fqdn = server.get_host_name_fqdn()?;
-    let entry_group = server.entry_group_new()?;
-    dbg!(&fqdn);
+    let args = Args::parse();
+
+    if args.subdomain.is_empty() {
+        print!("no subdomains specified");
+        return Ok(());
+    }
+
+    let conn = zbus::blocking::Connection::system().context("error connecting to system buss")?;
+    let server =
+        avahi::ServerProxyBlocking::new(&conn).context("error connecting to avahi-daemon")?;
+    let fqdn = if let Some(fqdn) = args.fqdn {
+        fqdn
+    } else {
+        server
+            .get_host_name_fqdn()
+            .context("error getting hostname fqdn from avahi-daemon")?
+    };
+
     let rdata = {
         let mut rdata = Vec::new();
-        for label in simple_dns::Name::new(&fqdn)?.iter() {
+        for label in fqdn.split(".") {
             rdata.push(label.len() as u8);
-            rdata.extend(label.as_ref());
+            rdata.extend(label.as_bytes());
         }
         rdata.push(0);
         rdata
     };
 
-    let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
-    socket.set_reuse_address(true)?;
-    socket.set_reuse_port(true)?;
-    socket.bind(
-        &"0.0.0.0:5353"
-            .parse::<std::net::SocketAddr>()
-            .unwrap()
-            .into(),
-    )?;
-    socket.join_multicast_v4(&Ipv4Addr::new(224, 0, 0, 251), &Ipv4Addr::UNSPECIFIED)?;
-    let socket: std::net::UdpSocket = socket.into();
+    let entry_group = server.entry_group_new()?;
+    for name in args.subdomain {
+        entry_group
+            .add_record(-1, -1, 0, &format!("{name}.{fqdn}"), 1, 5, args.ttl, &rdata)
+            .context("error adding cname record to entry group")?;
+    }
+    entry_group
+        .commit()
+        .context("error commiting entry group")?;
 
-    let mut registered = HashSet::<String>::new();
-    let fqdn_with_dot = format!(".{fqdn}");
-    let mut buf = [0u8; 9000];
-    loop {
-        let len = socket.recv(&mut buf)?;
-        let Ok(packet) = Packet::parse(&buf[..len]) else {
-            continue;
-        };
-
-        for question in packet.questions {
-            let name = question.qname.to_string();
-            if name.ends_with(&fqdn_with_dot) && !registered.contains(&name) {
-                println!("register {name}");
-                entry_group
-                    .add_record(-1, -1, 0, &name, 1, 5, 1, &rdata)
-                    .context("error adding record")?;
-                entry_group.commit().context("error commiting")?;
-                registered.insert(name);
-            }
+    let dbus_proxy = zbus::blocking::fdo::DBusProxy::new(&conn)?;
+    for signal in dbus_proxy.receive_name_owner_changed()? {
+        let args = signal.args()?;
+        if args.name() == "org.freedesktop.Avahi"
+            && args.new_owner().as_deref().unwrap_or("").is_empty()
+        {
+            println!("avahi-daemon exited; stopping");
+            break;
         }
     }
+    Ok(())
 }
