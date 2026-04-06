@@ -18,7 +18,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.subdomain.is_empty() {
-        print!("no subdomains specified");
+        println!("no subdomains specified");
         return Ok(());
     }
 

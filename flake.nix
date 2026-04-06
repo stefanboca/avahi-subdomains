@@ -19,13 +19,27 @@
     forAllSystems = genAttrs systems;
     nixpkgsFor = forAllSystems (system: nixpkgs.legacyPackages.${system});
     treefmtFor = forAllSystems (system: treefmt-nix.lib.evalModule nixpkgsFor.${system} ./treefmt.nix);
+
+    package = import ./nix/package.nix;
   in {
-    packages = forAllSystems (_: {});
+    packages = forAllSystems (system: let
+      pkgs = nixpkgsFor.${system};
+      avahi-subdomains = pkgs.callPackage package {};
+    in {
+      default = avahi-subdomains;
+      inherit avahi-subdomains;
+    });
+
+    overlays.default = _: prev: {avahi-subdomains = prev.callPackage package {};};
+
+    nixosModules.default = import ./nix/module.nix;
 
     devShells = forAllSystems (system: let
       pkgs = nixpkgsFor.${system};
     in {
-      default = pkgs.mkShellNoCC {};
+      default = pkgs.mkShellNoCC {
+        inputsFrom = [self.packages.${system}.avahi-subdomains];
+      };
     });
 
     formatter = forAllSystems (system: treefmtFor.${system}.config.build.wrapper);
