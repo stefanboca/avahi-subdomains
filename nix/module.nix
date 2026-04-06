@@ -4,16 +4,17 @@
   pkgs,
   ...
 }: let
-  inherit (builtins) concatStringsSep;
-  inherit (lib.modules) mkIf;
+  inherit (lib.lists) optional;
   inherit (lib.meta) getExe;
+  inherit (lib.modules) mkIf;
   inherit (lib.options) mkEnableOption mkOption mkPackageOption;
+  inherit (lib.strings) escapeShellArgs;
   inherit (lib.types) int nullOr str nonEmptyListOf;
-  inherit (lib.strings) optionalString;
 
-  ttlFlag = optionalString (cfg.ttl != null) "--ttl=${toString cfg.ttl}";
-  fqdnFlag = optionalString (cfg.fqdn != null) "--fqdn='${cfg.fqdn}'";
-  subdomainFlags = concatStringsSep " " (map (subdomain: "--subdomain='${subdomain}'") cfg.subdomains);
+  args =
+    (map (subdomain: "--subdomain='${subdomain}'") cfg.subdomains)
+    ++ (optional (cfg.fqdn != null) "--fqdn=${cfg.fqdn}")
+    ++ (optional (cfg.ttl != null) "--fqdn=${toString cfg.ttl}");
 
   cfg = config.services.avahi-subdomains;
 in {
@@ -53,7 +54,7 @@ in {
         partOf = ["avahi-daemon.service"];
 
         serviceConfig = {
-          ExecStart = "${getExe cfg.package} ${ttlFlag} ${fqdnFlag} ${subdomainFlags}";
+          ExecStart = "${getExe cfg.package} ${escapeShellArgs args}";
           Restart = "on-failure";
           RestartSec = 5;
         };
