@@ -34,7 +34,14 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # services.avahi.publish.userServices = true;
+    services.avahi = {
+      enable = true;
+      publish = {
+        enable = true;
+        addresses = true;
+        userServices = true;
+      };
+    };
 
     systemd.services = {
       avahi-daemon.wants = ["avahi-subdomains.service"];
