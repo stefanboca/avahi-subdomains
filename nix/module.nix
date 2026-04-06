@@ -54,6 +54,8 @@ in {
 
         serviceConfig = {
           ExecStart = "${getExe cfg.package} ${ttlFlag} ${fqdnFlag} ${subdomainFlags}";
+          Restart = "on-failure";
+          RestartSec = 5;
         };
       };
     };
