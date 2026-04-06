@@ -12,7 +12,7 @@
   inherit (lib.types) int nullOr str nonEmptyListOf;
 
   args =
-    (map (subdomain: "--subdomain='${subdomain}'") cfg.subdomains)
+    (map (subdomain: "--subdomain=${subdomain}") cfg.subdomains)
     ++ (optional (cfg.fqdn != null) "--fqdn=${cfg.fqdn}")
     ++ (optional (cfg.ttl != null) "--ttl=${toString cfg.ttl}");
 
