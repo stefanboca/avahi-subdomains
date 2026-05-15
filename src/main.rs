@@ -10,7 +10,7 @@ struct Args {
     ttl: u32,
     #[arg(long)]
     fqdn: Option<String>,
-    #[arg(short, long)]
+    #[arg(name = "SUBDOMAIN")]
     subdomain: Vec<String>,
 }
 
