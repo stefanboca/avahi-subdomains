@@ -38,10 +38,10 @@ in {
   config = mkIf cfg.enable {
     services.avahi = {
       enable = true;
-      publish = {
-        enable = true;
-        addresses = true;
-        userServices = true;
+      settings.publish = {
+        disable-publishing = false;
+        publish-addresses = true;
+        disable-user-service-publishing = false;
       };
     };
 
