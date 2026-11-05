@@ -19,6 +19,7 @@ pub trait Server {
 pub trait EntryGroup {
     async fn commit(&self) -> fdo::Result<()>;
 
+    #[expect(clippy::too_many_arguments)]
     async fn add_record(
         &self,
         interface: i32,
