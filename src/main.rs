@@ -64,15 +64,12 @@ async fn run(args: Args) -> anyhow::Result<()> {
         .context("error commiting entry group")?;
 
     let dbus_proxy = zbus::fdo::DBusProxy::new(&conn).await?;
-    let mut signals = dbus_proxy.receive_name_owner_changed().await?;
-    while let Some(signal) = signals.next().await {
-        let args = signal.args()?;
-        if args.name() == "org.freedesktop.Avahi"
-            && args.new_owner().as_deref().unwrap_or("").is_empty()
-        {
-            println!("avahi-daemon exited; stopping");
-            break;
-        }
+    // NameOwnerChanged arguments: name, old owner, new owner.
+    let mut signals = dbus_proxy
+        .receive_name_owner_changed_with_args(&[(0, "org.freedesktop.Avahi"), (2, "")])
+        .await?;
+    if signals.next().await.is_some() {
+        println!("avahi-daemon exited; stopping");
     }
     Ok(())
 }
